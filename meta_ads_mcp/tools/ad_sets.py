@@ -114,6 +114,21 @@ async def create_ad_set(
     OptimizationGoal(optimization_goal)
     BillingEvent(billing_event)
 
+    # Check if campaign uses CBO (Campaign Budget Optimization).
+    # When CBO is active, budget is managed at campaign level — passing
+    # daily_budget or lifetime_budget at ad-set level causes an API error.
+    uses_cbo = False
+    try:
+        campaign_data = await client.get(
+            campaign_id, params={"fields": "budget_rebalance_flag,daily_budget,lifetime_budget"},
+        )
+        has_campaign_budget = bool(
+            campaign_data.get("daily_budget") or campaign_data.get("lifetime_budget")
+        )
+        uses_cbo = campaign_data.get("budget_rebalance_flag", False) or has_campaign_budget
+    except Exception:
+        pass  # If lookup fails, proceed with user-supplied values
+
     payload: dict = {
         "campaign_id": campaign_id,
         "name": name,
@@ -122,10 +137,14 @@ async def create_ad_set(
         "status": "PAUSED",
     }
 
-    if daily_budget is not None:
-        payload["daily_budget"] = str(daily_budget)
-    if lifetime_budget is not None:
-        payload["lifetime_budget"] = str(lifetime_budget)
+    if uses_cbo and (daily_budget is not None or lifetime_budget is not None):
+        # CBO active: skip ad-set level budget, campaign controls it
+        pass
+    else:
+        if daily_budget is not None:
+            payload["daily_budget"] = str(daily_budget)
+        if lifetime_budget is not None:
+            payload["lifetime_budget"] = str(lifetime_budget)
     if bid_amount is not None:
         payload["bid_amount"] = str(bid_amount)
     if start_time:
@@ -133,18 +152,24 @@ async def create_ad_set(
     if end_time:
         payload["end_time"] = end_time
     if targeting:
+        # Meta API expects targeting as a JSON-encoded string in form data
+        if isinstance(targeting, str):
+            json.loads(targeting)  # validate JSON
         payload["targeting"] = targeting
     if promoted_object:
+        if isinstance(promoted_object, str):
+            json.loads(promoted_object)  # validate JSON
         payload["promoted_object"] = promoted_object
 
     result = await client.post(f"{act_id}/adsets", data=payload, account_id=act_id)
     adset_id = result.get("id", "unknown")
+    cbo_note = "\n- **Note**: Budget managed at campaign level (CBO active)" if uses_cbo else ""
     return (
         f"Ad Set created successfully.\n\n"
         f"- **ID**: {adset_id}\n"
         f"- **Name**: {name}\n"
         f"- **Optimization**: {optimization_goal}\n"
-        f"- **Status**: PAUSED"
+        f"- **Status**: PAUSED{cbo_note}"
     )
 
 

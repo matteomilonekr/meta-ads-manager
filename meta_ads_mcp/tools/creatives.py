@@ -16,7 +16,7 @@ from meta_ads_mcp.utils.pagination import paginate_local
 @mcp.tool()
 async def list_creatives(
     account_id: str,
-    limit: int = 50,
+    limit: int = 25,
     offset: int = 0,
     response_format: str = "markdown",
     ctx: Context = None,
@@ -25,7 +25,7 @@ async def list_creatives(
 
     Args:
         account_id: Ad account ID.
-        limit: Max results.
+        limit: Max results (default 25 to avoid Meta API data-size limits).
         offset: Pagination offset.
         response_format: markdown or json.
     """

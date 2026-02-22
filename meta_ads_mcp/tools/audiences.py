@@ -49,11 +49,19 @@ async def list_audiences(
 
     rows = []
     for a in audiences:
+        lower = safe_get(a, "approximate_count_lower_bound", 0)
+        upper = safe_get(a, "approximate_count_upper_bound", 0)
+        if lower and upper:
+            size = f"{format_number(lower)}-{format_number(upper)}"
+        elif lower:
+            size = f"{format_number(lower)}+"
+        else:
+            size = "N/A"
         rows.append({
             "id": safe_get(a, "id"),
             "name": safe_get(a, "name"),
             "subtype": safe_get(a, "subtype"),
-            "size": format_number(safe_get(a, "approximate_count", 0)),
+            "size": size,
             "status": str(safe_get(a, "operation_status", {}).get("status", "N/A")),
         })
 
