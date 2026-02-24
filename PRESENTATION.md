@@ -57,74 +57,116 @@ Nessun menu. Nessun filtro. Nessun export manuale.
 
 ---
 
-## Esempi reali
+## Prompt da copiare e usare
 
-### 1. Check performance
+### Performance e analisi
 
-> "Dammi un riepilogo delle campagne attive degli ultimi 7 giorni"
+```
+Dammi un riepilogo delle campagne attive degli ultimi 7 giorni
+```
 
-| Campagna | Spesa | Risultati | Costo/Risultato | Trend |
-|----------|-------|-----------|-----------------|-------|
-| Lead Gen Webinar | €210 | 42 lead | €5.00 | +12% |
-| Retargeting Shop | €150 | 18 acquisti | €8.33 | -5% |
-| Brand Awareness | €300 | 45K reach | €6.67 CPM | stabile |
+```
+Confronta le campagne attive e dimmi quale performa meglio
+```
 
-**10 secondi invece di 15 minuti.**
+```
+Mostrami il trend giornaliero della campagna [nome] nell'ultimo mese
+```
+
+```
+Qual e' il costo per lead delle campagne attive questo mese?
+```
+
+```
+Quali campagne hanno speso di piu' nell'ultima settimana senza risultati?
+```
+
+### Creazione campagne
+
+```
+Crea una campagna lead gen per il mio corso online.
+Target: donne 25-45 in Italia, interesse marketing digitale.
+Budget: 30 euro/giorno.
+```
+
+```
+Crea una campagna traffico al sito per il mio e-commerce.
+Target: uomini e donne 18-35, Italia, interesse moda.
+Budget: 20 euro/giorno.
+```
+
+```
+Duplica la struttura della campagna [nome] ma con target diverso:
+uomini 30-50 in Germania, interesse tecnologia.
+```
+
+### Gestione e ottimizzazione
+
+```
+Metti in pausa la campagna [nome] e sposta il budget sulla campagna [nome]
+```
+
+```
+Aumenta il budget della campagna [nome] a 50 euro/giorno
+```
+
+```
+Metti in pausa tutti gli ad set con costo per lead sopra i 10 euro
+```
+
+### Audience
+
+```
+Crea un pubblico simile ai miei migliori clienti, 2% in Italia
+```
+
+```
+Quante persone posso raggiungere con target donne 25-40, Milano, interesse fitness?
+```
+
+```
+Mostrami tutte le audience dell'account [nome]
+```
+
+### Report e export
+
+```
+Esportami le performance dell'ultimo mese in CSV, divise per eta' e genere
+```
+
+```
+Generami un report mensile per il cliente con spesa, risultati e costo per risultato
+```
+
+```
+Confronta le performance di questo mese vs mese scorso
+```
 
 ---
 
-### 2. Confronta campagne
+## Come funziona: il workflow pianifica-conferma-esegui
 
-> "Confronta le 3 campagne attive e dimmi quale performa meglio"
+Quando chiedi di creare o modificare qualcosa, Claude segue sempre questo processo:
 
-Claude analizza in **parallelo** (async) e ti dice:
-- Quale ha il ROAS migliore
-- Quale sta sprecando budget
-- Cosa suggerisce di fare
+**1. Ti fa domande** se mancano informazioni
 
----
+**2. Ti presenta il piano in tabella:**
 
-### 3. Crea campagna da zero
+| Parametro | Valore |
+|-----------|--------|
+| Account | [selezionato] |
+| Obiettivo | Lead Generation |
+| Budget | €30/giorno |
+| Target | Donne 25-45, Italia, interesse Marketing |
+| Stato iniziale | In pausa |
 
-> "Crea una campagna lead gen per il mio corso online.
-> Target: donne 25-45 in Italia, interesse marketing digitale.
-> Budget: 30 euro/giorno."
+*Tutto corretto? Procedo?*
 
-Claude crea in automatico:
-1. Campagna (in pausa, per sicurezza)
-2. Ad set con targeting esatto
-3. Collega la creative
-4. Ti chiede conferma prima di attivare
+**3. Aspetta la tua conferma** prima di toccare qualsiasi cosa
 
-**Zero click nell'Ads Manager.**
+**4. Esegue e ti mostra il risultato** con tutti gli ID creati
 
----
-
-### 4. Gestisci il budget
-
-> "La campagna Retargeting sta andando male. Mettila in pausa
-> e sposta il budget sulla Lead Gen."
-
-Claude:
-1. Mette in pausa la campagna
-2. Aggiorna il budget dell'altra
-3. Conferma le modifiche
-
----
-
-### 5. Crea audience
-
-> "Crea un pubblico simile ai miei migliori clienti, 2% in Italia"
-
-Claude crea la lookalike e ti dice quante persone stimate raggiungerai.
-
----
-
-### 6. Report per il cliente
-
-> "Esportami le performance dell'ultimo mese in CSV, divise per eta' e genere"
-
-File CSV pronto da inviare o aprire in Excel. **30 secondi.**
+> **Mai sorprese. Mai attivazioni accidentali. Sempre tu al comando.**
 
 ---
 
@@ -149,6 +191,7 @@ File CSV pronto da inviare o aprire in Excel. **30 secondi.**
 - Le campagne si creano **sempre in pausa** — mai attivazioni accidentali
 - **Tu dai le istruzioni, Claude esegue** — nessuna azione autonoma
 - Ti chiede **conferma prima di ogni modifica** importante
+- Claude **pianifica e mostra il piano** prima di eseguire qualsiasi operazione
 
 ---
 
@@ -172,27 +215,17 @@ File CSV pronto da inviare o aprire in Excel. **30 secondi.**
 
 ---
 
-## Auto-documentazione: `.claude/CLAUDE.md`
+## Auto-documentazione: `CLAUDE.md`
 
-Il server include un file `.claude/CLAUDE.md` che **insegna a Claude Code come usare l'MCP correttamente**, senza errori.
-
-Cosa contiene:
+Il server include un file `CLAUDE.md` che **insegna a Claude Code come usare l'MCP correttamente**, senza errori.
 
 | Sezione | Cosa insegna a Claude |
 |---------|----------------------|
 | **Regole critiche** | Valori validi per `date_preset`, formato account ID, budget in centesimi |
-| **Currency auto-detect** | Il server rileva la valuta dell'account (EUR, USD, GBP...) e mostra il simbolo corretto |
-| **Workflow patterns** | Sequenze corrette per leggere dati, creare campagne, analizzare performance |
+| **Currency auto-detect** | Rileva la valuta dell'account e mostra il simbolo corretto |
+| **Workflow pianifica-conferma-esegui** | Fa domande, presenta il piano, aspetta conferma, esegue |
 | **Gerarchia** | Account -> Campaign -> Ad Set -> Ad — navigazione top-down |
 | **Targeting spec** | Formato JSON esatto per targeting, interessi, geo |
-| **Source code map** | Dove trovare ogni file per modifiche future |
-
-Esempio di regola critica:
-
-```
-date_preset "lifetime" NON e' valido per Meta API.
-Usa "maximum" per ottenere tutti i dati storici.
-```
 
 > Claude legge questo file automaticamente e **non commette errori** gia' noti.
 
@@ -201,12 +234,6 @@ Usa "maximum" per ottenere tutti i dati storici.
 ## Currency dinamica
 
 Il server rileva automaticamente la **valuta dell'account** dalle API di Meta e mostra il simbolo corretto.
-
-| Account | Currency | Output |
-|---------|:--------:|--------|
-| ROIX10 LTD | EUR | €188.94 |
-| US Client | USD | $1,250.00 |
-| UK Agency | GBP | £430.50 |
 
 Niente piu' `$` su account europei. Il simbolo si adatta all'account.
 
@@ -232,23 +259,6 @@ Valute supportate: USD ($), EUR (€), GBP (£), JPY (¥), CHF, CAD (CA$), AUD (
 |-----|----------|-----|
 | `date_preset: lifetime` | Meta API non supporta `lifetime`, restituisce errore 100 | Rimosso dall'enum, documentato `maximum` come alternativa |
 | Currency hardcoded `$` | Tutti gli importi mostravano `$` anche su account EUR | Il server ora legge `account_currency` dall'API e usa il simbolo corretto |
-
-Entrambi i fix sono coperti dalla documentazione in `.claude/CLAUDE.md` per evitare regressioni future.
-
----
-
-## La domanda giusta
-
-Non e': *"Quanto costa?"*
-
-E': **"Quante ore risparmio ogni settimana?"**
-
-> Se passi anche solo 1 ora al giorno nell'Ads Manager,
-> con questo strumento ne risparmi almeno la meta'.
->
-> **5 ore a settimana. 20 ore al mese.**
->
-> Tempo che puoi dedicare a strategia, creativita' e clienti.
 
 ---
 
