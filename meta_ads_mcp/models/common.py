@@ -109,7 +109,6 @@ class DatePreset(str, Enum):
     LAST_28D = "last_28d"
     LAST_30D = "last_30d"
     LAST_90D = "last_90d"
-    LIFETIME = "lifetime"
     MAXIMUM = "maximum"
 
 

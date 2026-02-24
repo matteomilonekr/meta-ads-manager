@@ -100,7 +100,7 @@ async def get_insights(
 
     Args:
         object_id: Campaign/AdSet/Ad/Account ID to get insights for.
-        date_preset: Date range preset (today, yesterday, last_7d, last_14d, last_28d, last_30d, last_90d, this_month, last_month, this_quarter, last_quarter, this_year, last_year, lifetime, maximum).
+        date_preset: Date range preset (today, yesterday, last_7d, last_14d, last_28d, last_30d, last_90d, this_month, last_month, this_quarter, last_quarter, this_year, last_year, maximum).
         time_range_start: Custom start date YYYY-MM-DD (use instead of date_preset).
         time_range_end: Custom end date YYYY-MM-DD.
         fields: Comma-separated fields (default: impressions, clicks, spend, ctr, cpc, cpm, reach, frequency, actions).
