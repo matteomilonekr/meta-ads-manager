@@ -1,0 +1,32 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+             SOCIAL SCRAPER OS V. 1.2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Copyright © 2026 Matteo Milone
+Tutti i diritti riservati.
+
+LICENZA: Solo Uso Personale
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Questo software è di proprietà esclusiva di Matteo Milone
+ed è concesso in licenza SOLO per uso personale.
+
+❌ NON È CONSENTITO:
+   • Rivendere (né totale né parziale)
+   • Distribuire a terzi
+   • Uso commerciale non autorizzato
+   • Rimuovere questo avviso di copyright
+
+✅ È CONSENTITO:
+   • Uso personale per progetti propri
+   • Modifiche configurazioni personali
+   • Backup per uso personale
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Per licenze commerciali o informazioni:
+Consulta LICENSE.md o contatta Matteo Milone
+
+Versione: 1.0 | Data: Gennaio 2026
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

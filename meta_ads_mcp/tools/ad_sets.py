@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from mcp_use.server import Context
 
@@ -91,8 +92,8 @@ async def create_ad_set(
     bid_amount: int | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
-    targeting: str | None = None,
-    promoted_object: str | None = None,
+    targeting: Any | None = None,
+    promoted_object: Any | None = None,
     ctx: Context = None,
 ) -> str:
     """Create a new ad set within a campaign.
@@ -156,11 +157,15 @@ async def create_ad_set(
         payload["end_time"] = end_time
     if targeting:
         # Meta API expects targeting as a JSON-encoded string in form data
-        if isinstance(targeting, str):
+        if isinstance(targeting, dict):
+            targeting = json.dumps(targeting)
+        elif isinstance(targeting, str):
             json.loads(targeting)  # validate JSON
         payload["targeting"] = targeting
     if promoted_object:
-        if isinstance(promoted_object, str):
+        if isinstance(promoted_object, dict):
+            promoted_object = json.dumps(promoted_object)
+        elif isinstance(promoted_object, str):
             json.loads(promoted_object)  # validate JSON
         payload["promoted_object"] = promoted_object
 
@@ -184,7 +189,7 @@ async def update_ad_set(
     daily_budget: int | None = None,
     lifetime_budget: int | None = None,
     bid_amount: int | None = None,
-    targeting: str | None = None,
+    targeting: Any | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
     ctx: Context = None,
@@ -216,6 +221,8 @@ async def update_ad_set(
     if bid_amount is not None:
         payload["bid_amount"] = str(bid_amount)
     if targeting:
+        if isinstance(targeting, dict):
+            targeting = json.dumps(targeting)
         payload["targeting"] = targeting
     if start_time:
         payload["start_time"] = start_time

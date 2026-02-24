@@ -1,69 +1,51 @@
 # Meta Ads MCP Server
 
-Gestisci **tutte le tue campagne Meta/Facebook Ads** direttamente da Claude, senza aprire Business Manager.
+MCP (Model Context Protocol) server for Meta/Facebook Ads API. Manage campaigns, analytics, audiences, and creatives directly from Claude.
 
-Un MCP server che espone **36 tools** per creare, analizzare e ottimizzare campagne pubblicitarie su Facebook e Instagram tramite il Model Context Protocol.
+By **Matteo Milone**. Full async support, typed models, and 36 tools for complete Meta Ads management.
 
-> Built for [Scalers+](https://www.skool.com/scalers) community.
-> Python rewrite of [brijr/meta-mcp](https://github.com/brijr/meta-mcp) with 15+ bug fixes, async support, and typed models.
+## Features
 
----
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Campaigns** | 6 | List, create, update, pause, resume, delete |
+| **Ad Sets** | 5 | List, create, update, pause, delete |
+| **Ads** | 4 | List, create, update, delete |
+| **Analytics** | 5 | Insights, compare (parallel), export CSV/JSON, daily trends, attribution |
+| **Audiences** | 5 | Custom, lookalike, estimate size, delete |
+| **Creatives** | 4 | List, create, upload image, preview |
+| **OAuth** | 5 | Auth URL, code exchange, long-lived token, token info, validate |
+| **Account** | 2 | List ad accounts, health check |
 
-## Cosa puoi fare
-
-| Categoria | Tools | Operazioni |
-|-----------|:-----:|------------|
-| **Campagne** | 6 | Listare, creare, aggiornare, mettere in pausa, riattivare, eliminare |
-| **Ad Sets** | 5 | Listare, creare con targeting e budget, aggiornare, pausare, eliminare |
-| **Ads** | 4 | Listare, creare (linking creative + ad set), aggiornare, eliminare |
-| **Analytics** | 5 | Insights con date range, confronto parallelo multi-campagna, export CSV/JSON, trend giornalieri, attribution windows |
-| **Audiences** | 5 | Custom audience, lookalike, stima dimensione, listare, eliminare |
-| **Creatives** | 4 | Listare, creare con immagine/video + CTA, upload immagini, preview |
-| **OAuth** | 5 | Auth URL, code exchange, long-lived token (60gg), info token, validazione |
-| **Account** | 2 | Lista ad account accessibili, health check server + API |
-
-**36 tools totali** — copertura completa del workflow Meta Ads.
-
----
+**36 tools total.**
 
 ## Quick Start
 
-### 1. Installa
+### 1. Install
 
 ```bash
 pip install -e .
 ```
 
-### 2. Configura
+### 2. Configure
 
 ```bash
 export META_ACCESS_TOKEN="your_token_here"
 
-# Opzionale (per OAuth flows)
+# Optional (for OAuth flows)
 export META_APP_ID="your_app_id"
 export META_APP_SECRET="your_app_secret"
 ```
 
-### 3. Avvia
+### 3. Run
 
-**STDIO** (per Claude Code / Claude Desktop):
 ```bash
 python -m meta_ads_mcp.server
 ```
 
-**HTTP** (per mcp-use, web clients, Inspector UI):
-```bash
-python -c "from meta_ads_mcp.server import mcp; mcp.run(transport='streamable-http', port=8000)"
-```
+### 4. Connect to Claude
 
-Con debug mode (abilita Inspector UI su `/inspector`, docs su `/docs`):
-```bash
-python -c "from meta_ads_mcp.server import mcp; mcp.run(transport='streamable-http', port=8000, debug=True)"
-```
-
-### 4. Connetti a Claude
-
-**Claude Code** — aggiungi a `~/.claude/settings.json`:
+Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -71,7 +53,6 @@ python -c "from meta_ads_mcp.server import mcp; mcp.run(transport='streamable-ht
     "meta-ads": {
       "command": "python",
       "args": ["-m", "meta_ads_mcp.server"],
-      "cwd": "/path/to/meta-ads-mcp",
       "env": {
         "META_ACCESS_TOKEN": "your_token_here"
       }
@@ -80,226 +61,144 @@ python -c "from meta_ads_mcp.server import mcp; mcp.run(transport='streamable-ht
 }
 ```
 
-**Claude Desktop** — stesso formato in `~/.config/claude/claude_desktop_config.json`.
+## Getting a Meta Access Token
 
-### 5. Usa con mcp-use (programmatico)
+1. Go to [Meta for Developers](https://developers.facebook.com/)
+2. Create an app (Business type)
+3. Add **Marketing API** product
+4. Generate a User Access Token with `ads_management` and `ads_read` permissions
+5. Use `refresh_to_long_lived_token` tool to extend it to 60 days
 
-```python
-from mcp_use import MCPClient
-from mcp_use.client.config import MCPServerConfig
+Or use the built-in OAuth tools:
 
-config = MCPServerConfig(
-    url="http://localhost:8000/mcp",
-    transport="streamable-http",
-)
-client = MCPClient(config={"mcpServers": {"meta-ads": config}})
-
-async with client.session("meta-ads") as session:
-    tools = await session.list_tools()
-    result = await session.call_tool("health_check", {})
-    print(result)
 ```
-
----
-
-## Come ottenere il Token Meta
-
-**Opzione A — Manuale:**
-1. Vai su [Meta for Developers](https://developers.facebook.com/)
-2. Crea un'app (tipo Business)
-3. Aggiungi il prodotto **Marketing API**
-4. Genera un User Access Token con permessi `ads_management` e `ads_read`
-5. Usa il tool `refresh_to_long_lived_token` per estenderlo a 60 giorni
-
-**Opzione B — OAuth integrato:**
+generate_auth_url → open in browser → exchange_code_for_token → refresh_to_long_lived_token
 ```
-generate_auth_url → apri nel browser → exchange_code_for_token → refresh_to_long_lived_token
-```
-
----
 
 ## Tools Reference
 
-### Campaigns (6 tools)
+### Campaigns
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `list_campaigns` | Lista campagne con filtri per stato e obiettivo. Output markdown o JSON. |
-| `create_campaign` | Crea campagna (PAUSED di default). Supporta tutti gli obiettivi Meta (CONVERSIONS, TRAFFIC, LEADS, etc.) e bid strategy (LOWEST_COST, COST_CAP, BID_CAP). |
-| `update_campaign` | Aggiorna nome, stato, budget, schedule, bid strategy. |
-| `pause_campaign` | Metti in pausa una campagna attiva. |
-| `resume_campaign` | Riattiva una campagna in pausa. |
-| `delete_campaign` | Elimina una campagna. |
+| `list_campaigns` | List campaigns with status/objective filters |
+| `create_campaign` | Create campaign (PAUSED by default) |
+| `update_campaign` | Update name, status, budget, schedule |
+| `pause_campaign` | Pause a campaign |
+| `resume_campaign` | Activate a paused campaign |
+| `delete_campaign` | Delete a campaign |
 
-### Ad Sets (5 tools)
+### Ad Sets
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `list_ad_sets` | Lista ad set per account o campagna. Mostra budget, targeting, ottimizzazione. |
-| `create_ad_set` | Crea ad set con targeting, budget, optimization goal, billing event. Rileva automaticamente CBO (Campaign Budget Optimization) e gestisce il budget di conseguenza. |
-| `update_ad_set` | Aggiorna targeting, budget, schedule, promoted object. Valida JSON prima dell'invio. |
-| `pause_ad_set` | Metti in pausa un ad set. |
-| `delete_ad_set` | Elimina un ad set. |
+| `list_ad_sets` | List ad sets by account or campaign |
+| `create_ad_set` | Create ad set with targeting, budget, optimization |
+| `update_ad_set` | Update targeting, budget, schedule |
+| `pause_ad_set` | Pause an ad set |
+| `delete_ad_set` | Delete an ad set |
 
-### Ads (4 tools)
+### Ads
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `list_ads` | Lista ads per account, campagna o ad set. Include status, preview URL, metriche. |
-| `create_ad` | Crea ad collegando una creative a un ad set. |
-| `update_ad` | Aggiorna stato, nome o creative di un ad. |
-| `delete_ad` | Elimina un ad. |
+| `list_ads` | List ads by account, campaign, or ad set |
+| `create_ad` | Create ad linking creative to ad set |
+| `update_ad` | Update ad status/name/creative |
+| `delete_ad` | Delete an ad |
 
-### Analytics (5 tools)
+### Analytics
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `get_insights` | Metriche di performance con date range personalizzate o preset (last_7d, last_30d, etc.). Breakdowns per age, gender, country, placement. Tutti i 20 Meta date preset supportati. |
-| `compare_performance` | Confronto side-by-side di multiple campagne/ad set/ads. Esecuzione **parallela** via `asyncio.gather()` per massima velocita. |
-| `export_insights` | Esporta dati in formato **CSV** o **JSON**. Pronto per analisi esterne. |
-| `get_daily_trends` | Breakdown giornaliero con indicatore di trend (up/down/stable) per spend, impressions, clicks, conversions. |
-| `get_attribution_data` | Analisi per attribution window (1d_click, 7d_click, 28d_click, 1d_view). |
+| `get_insights` | Performance metrics with date ranges and breakdowns |
+| `compare_performance` | Compare multiple objects side-by-side (async parallel) |
+| `export_insights` | Export data as CSV or JSON |
+| `get_daily_trends` | Daily breakdown with trend direction |
+| `get_attribution_data` | Attribution window analysis |
 
-### Audiences (5 tools)
+### Audiences
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `list_audiences` | Lista custom e lookalike audience con dimensione stimata (lower/upper bound). |
-| `create_custom_audience` | Crea audience personalizzata (website, app, customer file, video viewers, etc.). |
-| `create_lookalike` | Crea lookalike da audience sorgente con country e ratio personalizzabili. |
-| `estimate_audience_size` | Stima reach per una targeting spec senza creare nulla. |
-| `delete_audience` | Elimina un'audience. API call reale (non stub come nell'originale). |
+| `list_audiences` | List custom/lookalike audiences |
+| `create_custom_audience` | Create custom audience (website, app, video, etc.) |
+| `create_lookalike` | Create lookalike from source audience |
+| `estimate_audience_size` | Estimate reach for targeting spec |
+| `delete_audience` | Delete an audience |
 
-### Creatives (4 tools)
+### Creatives
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `list_creatives` | Lista creative dell'account (default 25 per evitare limiti API). |
-| `create_creative` | Crea creative con object_story_spec (immagine/video + CTA + link). |
-| `upload_image` | Upload immagine da URL, restituisce hash per uso nelle creative. |
-| `preview_ad` | Preview di una creative in vari formati (desktop feed, mobile feed, stories, etc.). |
+| `list_creatives` | List ad creatives |
+| `create_creative` | Create with image/video and CTA |
+| `upload_image` | Upload image from URL, returns hash |
+| `preview_ad` | Preview creative in various formats |
 
-### OAuth (5 tools)
+### OAuth
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `generate_auth_url` | Genera URL di autorizzazione Facebook OAuth. |
-| `exchange_code_for_token` | Scambia authorization code per access token. |
-| `refresh_to_long_lived_token` | Converte token short-lived in long-lived (60 giorni). |
-| `get_token_info` | Info dettagliate: validita, scopi, scadenza, app ID. |
-| `validate_token` | Validazione rapida — controlla se il token funziona. |
+| `generate_auth_url` | Generate Facebook OAuth URL |
+| `exchange_code_for_token` | Exchange auth code for access token |
+| `refresh_to_long_lived_token` | Convert to 60-day token |
+| `get_token_info` | Token validity, scopes, expiry |
+| `validate_token` | Quick token validation |
 
-### Account (2 tools)
+### Account
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `list_ad_accounts` | Lista tutti gli ad account accessibili con stato, currency, timezone. |
-| `health_check` | Check salute server + connettivita API Meta. |
+| `list_ad_accounts` | List all accessible ad accounts |
+| `health_check` | Server + API connectivity check |
 
----
-
-## Architettura
+## Architecture
 
 ```
 meta_ads_mcp/
-├── server.py          # mcp-use server con lifespan management
-├── client.py          # Client HTTP async (httpx) con retry + rate limiting
-├── auth.py            # Gestione token, OAuth flows
+├── server.py          # FastMCP server with lifespan
+├── client.py          # Async httpx client (retry + rate limiting)
+├── auth.py            # Token management, OAuth flows
 ├── models/
-│   └── common.py      # Enum, costanti, field defaults, date presets
-├── tools/             # 36 MCP tools organizzati in 8 moduli
-│   ├── campaigns.py   # 6 tools
-│   ├── ad_sets.py     # 5 tools
-│   ├── ads.py         # 4 tools
-│   ├── analytics.py   # 5 tools
-│   ├── audiences.py   # 5 tools
-│   ├── creatives.py   # 4 tools
-│   ├── oauth.py       # 5 tools
-│   ├── account.py     # 2 tools
-│   └── _helpers.py    # Utility condivise (get_client, safe_get, normalize_account_id)
+│   └── common.py      # Enums, constants, field defaults
+├── tools/             # 36 MCP tools (8 modules)
+│   ├── campaigns.py
+│   ├── ad_sets.py
+│   ├── ads.py
+│   ├── analytics.py
+│   ├── audiences.py
+│   ├── creatives.py
+│   ├── oauth.py
+│   └── account.py
 └── utils/
-    ├── errors.py      # Gerarchia errori tipizzata (MetaApiError, AuthError, RateLimitError)
-    ├── rate_limiter.py # Sistema scoring per-account con backoff automatico
-    ├── pagination.py   # Paginazione cursor + URL fallback
-    └── formatting.py   # Tabelle markdown, formattazione currency/numeri/percentuali
+    ├── errors.py      # Typed error hierarchy
+    ├── rate_limiter.py # Per-account scoring system
+    ├── pagination.py   # Cursor + URL pagination
+    └── formatting.py   # Markdown tables, currency
 ```
-
----
 
 ## Tech Stack
 
-| Componente | Tecnologia |
-|------------|------------|
-| Runtime | Python 3.12+ |
-| MCP Framework | [mcp-use](https://manufact.com/docs/python/server/compatibility) (FastMCP compatibile) |
-| HTTP Client | httpx (async) |
-| Validation | Pydantic v2 |
-| Meta API | Graph API v23.0 |
-| Testing | pytest + pytest-asyncio + respx |
-| Transport | STDIO, Streamable HTTP, SSE |
+- **Python 3.12+**
+- **FastMCP** — MCP server framework
+- **httpx** — Async HTTP client
+- **Pydantic v2** — Input validation
+- **Meta Graph API v23.0**
 
----
-
-## Miglioramenti rispetto all'originale
-
-Rewrite completo da TypeScript a Python con 15+ fix critici:
-
-| Problema | Originale (TypeScript) | Questa versione |
-|----------|----------------------|-----------------|
-| Tool stub | `delete_audience`, `update_audience` non fanno nulla | Tutti i tools fanno API call reali |
-| compare_performance | Sequenziale O(n) | Parallelo via `asyncio.gather()` |
-| Rate limit | Classificato erroneamente come auth error | Priorita codice (4, 17 prima di OAuthException) |
-| Paginazione | Si blocca quando manca il cursor nell'URL | Supporta cursor + URL fallback |
-| Date presets | Mancano `last_7d`, `last_30d`, `last_90d` | Tutti i 20 preset Meta inclusi |
-| Types | `any` ovunque | Pydantic models + enum tipizzati |
-| JWT secret | Hardcoded di default | Non necessario (solo STDIO) |
-| Logging | `console.log` inquina STDIO | Python logging su stderr |
-| API version | Inconsistente v22/v23 | Singola costante `META_API_VERSION` |
-| CBO handling | Nessun controllo | Rileva CBO e salta budget ad-set level |
-| Audience size | Campo deprecato `approximate_count` | Usa `lower_bound` / `upper_bound` |
-| JSON validation | Nessuna | Valida targeting/promoted_object prima dell'invio |
-
----
-
-## Sviluppo
+## Development
 
 ```bash
-# Installa con dipendenze dev
+# Install with dev dependencies
 pip install -e ".[dev]"
 
-# Esegui test (134 test, 94% coverage)
+# Run tests
 pytest -v
 
-# Test con coverage
+# Run with coverage
 pytest --cov=meta_ads_mcp --cov-report=term-missing
-
-# Test completo di tutti i tools (richiede META_ACCESS_TOKEN reale)
-python test_all_tools.py
 ```
 
-### Debug e Inspector
+## License
 
-Con mcp-use in debug mode ottieni:
-
-| Endpoint | Descrizione |
-|----------|-------------|
-| `/inspector` | UI interattiva per testare i tools |
-| `/docs` | Documentazione auto-generata |
-| `/openmcp.json` | Metadata OpenMCP |
-
-```bash
-python -c "from meta_ads_mcp.server import mcp; mcp.run(transport='streamable-http', debug=True)"
-# Apri http://localhost:8000/inspector
-```
-
----
-
-## Licenza
-
-Copyright (c) 2026 Matteo Milone. Tutti i diritti riservati.
-
-Questo software e il relativo codice sorgente sono di proprieta esclusiva di Matteo Milone.
-Non e consentito copiare, modificare, distribuire, sublicenziare o utilizzare questo software,
-in tutto o in parte, senza autorizzazione scritta esplicita da parte dell'autore.
-
-Per richieste di licenza: contattare Matteo Milone.
+MIT

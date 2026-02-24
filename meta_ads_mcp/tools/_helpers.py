@@ -17,14 +17,14 @@ def get_client(ctx: Context | None) -> MetaAdsClient:
     """Extract MetaAdsClient from MCP context."""
     if ctx is None:
         raise RuntimeError("MCP context required — cannot get Meta client")
-    return ctx.request_context.lifespan_state["meta_client"]
+    return ctx.request_context.lifespan_context["meta_client"]
 
 
 def get_auth(ctx: Context | None) -> AuthManager:
     """Extract AuthManager from MCP context."""
     if ctx is None:
         raise RuntimeError("MCP context required — cannot get auth manager")
-    return ctx.request_context.lifespan_state["auth"]
+    return ctx.request_context.lifespan_context["auth"]
 
 
 def normalize_account_id(account_id: str) -> str:

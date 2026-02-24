@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from mcp_use.server import Context
 
@@ -180,7 +181,7 @@ async def create_lookalike(
 @mcp.tool()
 async def estimate_audience_size(
     account_id: str,
-    targeting: str,
+    targeting: Any = "",
     optimization_goal: str = "LINK_CLICKS",
     ctx: Context = None,
 ) -> str:
@@ -193,6 +194,9 @@ async def estimate_audience_size(
     """
     client = get_client(ctx)
     act_id = normalize_account_id(account_id)
+
+    if isinstance(targeting, dict):
+        targeting = json.dumps(targeting)
 
     params = {
         "targeting_spec": targeting,
