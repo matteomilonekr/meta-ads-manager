@@ -6,7 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from mcp.server.fastmcp import FastMCP
+from mcp_use.server import FastMCP
 
 from meta_ads_mcp.auth import load_config_from_env, AuthManager
 from meta_ads_mcp.client import MetaAdsClient
@@ -38,10 +38,9 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
 def create_server() -> FastMCP:
     """Create and configure the FastMCP server instance."""
-    return FastMCP(
-        SERVER_NAME,
-        lifespan=app_lifespan,
-    )
+    server = FastMCP(SERVER_NAME)
+    server.settings.lifespan = app_lifespan
+    return server
 
 
 # Module-level server instance — tools register on this via @mcp.tool()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from mcp.server.fastmcp import Context
+from mcp_use.server import Context
 
 logger = logging.getLogger(__name__)
 

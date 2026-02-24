@@ -8,7 +8,7 @@ import io
 import json
 import logging
 
-from mcp.server.fastmcp import Context
+from mcp_use.server import Context
 
 logger = logging.getLogger(__name__)
 
