@@ -4,6 +4,16 @@ Tutte le modifiche rilevanti al progetto Meta Ads MCP Server sono documentate in
 
 ---
 
+## [1.2.0] — 2026-10-13
+
+### Nuove funzioni
+
+- `upload_video`: carica un video dal computer nella libreria dell'account pubblicitario (caricamento a pezzi, va bene anche per file grandi) e restituisce l'ID video e la miniatura quando Meta ha finito di elaborarlo.
+- `get_creative`: legge una creatività completa (pagina, account Instagram, video, testo, CTA, opzioni Advantage+), utile per copiare l'impostazione di un annuncio esistente.
+- `create_creative`: per i video il link ora è facoltativo (annunci di copertura senza pulsante), nuovi parametri `instagram_user_id`, `thumbnail_url` e `opt_out_enhancements`.
+
+---
+
 ## [1.1.0] — 2026-03-09
 
 ### Security Fix

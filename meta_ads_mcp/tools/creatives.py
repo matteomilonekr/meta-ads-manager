@@ -99,6 +99,70 @@ async def list_creatives(
     return f"## Ad Creatives ({info.count}/{info.total})\n\n{table}"
 
 
+def build_creative_payload(
+    name: str,
+    page_id: str,
+    message: str | None = None,
+    link: str | None = None,
+    image_hash: str | None = None,
+    video_id: str | None = None,
+    headline: str | None = None,
+    description: str | None = None,
+    call_to_action_type: str = "LEARN_MORE",
+    instagram_user_id: str | None = None,
+    thumbnail_url: str | None = None,
+    opt_out_enhancements: bool = False,
+) -> dict[str, str]:
+    """Build the form payload for POST act_X/adcreatives."""
+    story_spec: dict = {"page_id": page_id}
+    if instagram_user_id:
+        story_spec["instagram_user_id"] = instagram_user_id
+
+    if video_id:
+        # Video ad. Meta wants a thumbnail: an image hash or a URL.
+        video_data: dict = {"video_id": video_id}
+        if image_hash:
+            video_data["image_hash"] = image_hash
+        elif thumbnail_url:
+            video_data["image_url"] = thumbnail_url
+        if link:
+            video_data["call_to_action"] = {"type": call_to_action_type, "value": {"link": link}}
+        if message:
+            video_data["message"] = message
+        if headline:
+            video_data["title"] = headline
+        if description:
+            video_data["link_description"] = description
+        story_spec["video_data"] = video_data
+    elif link:
+        # Link ad, with or without image
+        link_data: dict = {
+            "link": link,
+            "call_to_action": {"type": call_to_action_type, "value": {"link": link}},
+        }
+        if image_hash:
+            link_data["image_hash"] = image_hash
+        if message:
+            link_data["message"] = message
+        if headline:
+            link_data["name"] = headline
+        if description:
+            link_data["description"] = description
+        story_spec["link_data"] = link_data
+    elif message:
+        # Text-only post (no link) — still needs link_data wrapper for Meta API
+        story_spec["link_data"] = {"message": message}
+
+    payload = {"name": name, "object_story_spec": json.dumps(story_spec)}
+    if opt_out_enhancements:
+        # Same opt-outs Ads Manager sets when Advantage+ creative extras are turned off
+        payload["degrees_of_freedom_spec"] = json.dumps(
+            {"creative_features_spec": {"product_browsing": {"enroll_status": "OPT_OUT"}}}
+        )
+        payload["contextual_multi_ads"] = json.dumps({"enroll_status": "OPT_OUT"})
+    return payload
+
+
 @mcp.tool()
 async def create_creative(
     account_id: str,
@@ -111,6 +175,9 @@ async def create_creative(
     headline: str | None = None,
     description: str | None = None,
     call_to_action_type: str = "LEARN_MORE",
+    instagram_user_id: str | None = None,
+    thumbnail_url: str | None = None,
+    opt_out_enhancements: bool = False,
     ctx: Context = None,
 ) -> str:
     """Create an ad creative with object_story_spec.
@@ -120,12 +187,15 @@ async def create_creative(
         name: Creative name.
         page_id: Facebook Page ID for the ad.
         message: Primary text (post body).
-        link: Destination URL for the ad.
-        image_hash: Hash of uploaded image (from upload_image tool).
-        video_id: Video ID for video ads.
+        link: Destination URL for the ad (optional for video ads).
+        image_hash: Hash of uploaded image (from upload_image tool); for video ads it is the thumbnail.
+        video_id: Video ID for video ads (from upload_video tool).
         headline: Ad headline.
         description: Ad description (link description).
-        call_to_action_type: CTA type: LEARN_MORE, SHOP_NOW, SIGN_UP, DOWNLOAD, CONTACT_US, SUBSCRIBE, GET_OFFER, etc.
+        call_to_action_type: CTA type: LEARN_MORE, SHOP_NOW, SIGN_UP, DOWNLOAD, CONTACT_US, SUBSCRIBE, GET_OFFER, etc. Used only with a link.
+        instagram_user_id: Instagram account that runs the ad (see get_creative on an existing ad).
+        thumbnail_url: Thumbnail URL for video ads when no image_hash is given (upload_video returns one).
+        opt_out_enhancements: Turn off Advantage+ creative extras (product browsing, multi-ads).
     """
     client = get_client(ctx)
     act_id = normalize_account_id(account_id)
@@ -134,58 +204,10 @@ async def create_creative(
     if blocked:
         return f"**Operazione bloccata (protezione anti-ban):** {blocked}"
 
-    # Build object_story_spec
-    story_spec: dict = {"page_id": page_id}
-
-    if link and image_hash:
-        # Link ad with image
-        link_data: dict = {
-            "link": link,
-            "image_hash": image_hash,
-            "call_to_action": {"type": call_to_action_type, "value": {"link": link}},
-        }
-        if message:
-            link_data["message"] = message
-        if headline:
-            link_data["name"] = headline
-        if description:
-            link_data["description"] = description
-        story_spec["link_data"] = link_data
-    elif link and video_id:
-        # Video ad
-        video_data: dict = {
-            "video_id": video_id,
-            "call_to_action": {"type": call_to_action_type, "value": {"link": link}},
-        }
-        if message:
-            video_data["message"] = message
-        if headline:
-            video_data["title"] = headline
-        if description:
-            video_data["description"] = description
-        story_spec["video_data"] = video_data
-    elif link:
-        # Link ad without image — Meta requires link_data with a valid link
-        link_data = {
-            "link": link,
-            "call_to_action": {"type": call_to_action_type, "value": {"link": link}},
-        }
-        if message:
-            link_data["message"] = message
-        if headline:
-            link_data["name"] = headline
-        if description:
-            link_data["description"] = description
-        story_spec["link_data"] = link_data
-    elif message:
-        # Text-only post (no link) — still needs link_data wrapper for Meta API
-        story_spec["link_data"] = {"message": message}
-
-    payload = {
-        "name": name,
-        "object_story_spec": json.dumps(story_spec),
-    }
-
+    payload = build_creative_payload(
+        name, page_id, message, link, image_hash, video_id, headline, description,
+        call_to_action_type, instagram_user_id, thumbnail_url, opt_out_enhancements,
+    )
     result = await client.post(f"{act_id}/adcreatives", data=payload, account_id=act_id)
     safety_guard.record_write("create", act_id)
     creative_id = result.get("id", "unknown")
@@ -194,7 +216,7 @@ async def create_creative(
         f"- **ID**: {creative_id}\n"
         f"- **Name**: {name}\n"
         f"- **Page**: {page_id}\n"
-        f"- **CTA**: {call_to_action_type}"
+        f"- **CTA**: {call_to_action_type if link else 'none'}"
     )
 
 
