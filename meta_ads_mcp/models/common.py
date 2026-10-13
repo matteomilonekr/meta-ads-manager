@@ -7,6 +7,7 @@ from enum import Enum
 
 META_API_VERSION = "v23.0"
 META_GRAPH_URL = f"https://graph.facebook.com/{META_API_VERSION}"
+META_GRAPH_VIDEO_URL = f"https://graph-video.facebook.com/{META_API_VERSION}"
 
 
 class CampaignObjective(str, Enum):

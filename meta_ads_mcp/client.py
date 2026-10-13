@@ -174,6 +174,30 @@ class MetaAdsClient:
             endpoint, "DELETE", account_id=account_id, is_write=True,
         )
 
+    async def post_multipart(
+        self,
+        url: str,
+        data: dict[str, Any],
+        files: dict[str, tuple[str, bytes, str]] | None = None,
+        account_id: str | None = None,
+        timeout: float = 300.0,
+    ) -> dict[str, Any]:
+        """POST a multipart form to a full URL (used for video chunk uploads).
+
+        No automatic retry: a chunk upload is retried by the caller, which
+        knows the current offset.
+        """
+        if account_id:
+            rate_limiter.check(account_id, True)
+        response = await self._http.post(
+            url,
+            params=self._auth.get_auth_params(),
+            data=data,
+            files=files,
+            timeout=timeout,
+        )
+        return self._handle_response(response)
+
     # ── Pagination helpers ───────────────────────────────────────────
 
     async def get_paginated(
