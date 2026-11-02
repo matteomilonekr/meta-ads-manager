@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+from pathlib import Path
 from urllib.parse import urlparse
 
 from fastmcp import Context
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 _ALLOWED_SCHEMES = {"http", "https"}
 _BLOCKED_HOSTNAMES = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]"}
+_LOCAL_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+_MAX_LOCAL_IMAGE_BYTES = 30 * 1024 * 1024
 
 
 def _validate_image_url(url: str) -> None:
@@ -167,15 +170,15 @@ def build_creative_payload(
 async def create_creative(
     account_id: str,
     name: str,
-    page_id: str,
+    page_id: str | int,
     message: str | None = None,
     link: str | None = None,
     image_hash: str | None = None,
-    video_id: str | None = None,
+    video_id: str | int | None = None,
     headline: str | None = None,
     description: str | None = None,
     call_to_action_type: str = "LEARN_MORE",
-    instagram_user_id: str | None = None,
+    instagram_user_id: str | int | None = None,
     thumbnail_url: str | None = None,
     opt_out_enhancements: bool = False,
     ctx: Context = None,
@@ -204,6 +207,11 @@ async def create_creative(
     if blocked:
         return f"**Operazione bloccata (protezione anti-ban):** {blocked}"
 
+    # MCP clients may send numeric IDs as JSON numbers: Meta wants them as strings
+    page_id = str(page_id)
+    video_id = str(video_id) if video_id is not None else None
+    instagram_user_id = str(instagram_user_id) if instagram_user_id is not None else None
+
     payload = build_creative_payload(
         name, page_id, message, link, image_hash, video_id, headline, description,
         call_to_action_type, instagram_user_id, thumbnail_url, opt_out_enhancements,
@@ -223,26 +231,41 @@ async def create_creative(
 @mcp.tool()
 async def upload_image(
     account_id: str,
-    image_url: str,
+    image_url: str | None = None,
+    file_path: str | None = None,
     ctx: Context = None,
 ) -> str:
-    """Upload an image from URL to Meta for use in ad creatives.
+    """Upload an image to Meta for use in ad creatives, from a public URL or a local file.
 
-    Returns the image hash needed for create_creative.
-    Tries URL upload first, falls back to downloading and uploading as base64 bytes.
+    Returns the image hash needed for create_creative (for video ads it is the thumbnail).
+    With a URL it tries URL upload first, then falls back to downloading and uploading as base64 bytes.
 
     Args:
         account_id: Ad account ID.
         image_url: Public URL of the image to upload.
+        file_path: Absolute path of a local .jpg or .png image (used instead of image_url).
     """
     import base64
     import httpx as _httpx
 
-    # Validate URL before any network request (SSRF protection)
-    _validate_image_url(image_url)
-
     client = get_client(ctx)
     act_id = normalize_account_id(account_id)
+
+    if file_path:
+        path = Path(file_path).expanduser()
+        if path.suffix.lower() not in _LOCAL_IMAGE_SUFFIXES or not path.is_file():
+            return "Error: file_path must be an existing .jpg, .jpeg or .png file."
+        if path.stat().st_size > _MAX_LOCAL_IMAGE_BYTES:
+            return "Error: image larger than 30 MB."
+        b64 = base64.b64encode(path.read_bytes()).decode()
+        result = await client.post(f"{act_id}/adimages", data={"bytes": b64}, account_id=act_id)
+        return _format_image_result(result)
+
+    if not image_url:
+        return "Error: pass image_url or file_path."
+
+    # Validate URL before any network request (SSRF protection)
+    _validate_image_url(image_url)
 
     # Try URL-based upload first
     try:
@@ -260,6 +283,10 @@ async def upload_image(
             logger.error("Image upload failed (both url and bytes methods)")
             return "Error uploading image. Verify the URL is publicly accessible and points to a valid image."
 
+    return _format_image_result(result)
+
+
+def _format_image_result(result: dict) -> str:
     images = result.get("images", {})
     if images:
         first_key = next(iter(images))
