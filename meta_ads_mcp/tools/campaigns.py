@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from fastmcp import Context
 
@@ -82,6 +83,8 @@ async def create_campaign(
     lifetime_budget: int | None = None,
     bid_strategy: str = "LOWEST_COST_WITHOUT_CAP",
     special_ad_categories: str = "NONE",
+    special_ad_category_country: str | None = None,
+    adset_budget_sharing: bool = False,
     start_time: str | None = None,
     stop_time: str | None = None,
     ctx: Context = None,
@@ -95,7 +98,9 @@ async def create_campaign(
         daily_budget: Daily budget in cents (e.g., 5000 = $50.00). Provide either daily or lifetime.
         lifetime_budget: Lifetime budget in cents.
         bid_strategy: LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS.
-        special_ad_categories: NONE, EMPLOYMENT, HOUSING, CREDIT, ISSUES_ELECTIONS_POLITICS (comma-separated if multiple).
+        special_ad_categories: NONE, EMPLOYMENT, HOUSING, FINANCIAL_PRODUCTS_SERVICES, ISSUES_ELECTIONS_POLITICS, ONLINE_GAMBLING_AND_GAMING (comma-separated if multiple). The legacy value CREDIT is still accepted and is mapped to FINANCIAL_PRODUCTS_SERVICES (Meta replaced CREDIT in January 2025).
+        special_ad_category_country: Comma-separated ISO 3166-1 alpha-2 codes (e.g. 'IT' or 'IT,DE'). Required by Meta whenever a special category is selected; mandatory here for ISSUES_ELECTIONS_POLITICS. For HOUSING, EMPLOYMENT and FINANCIAL_PRODUCTS_SERVICES Meta defaults to the advertiser's tax country if omitted.
+        adset_budget_sharing: Only used when neither daily_budget nor lifetime_budget is set (budget lives on the ad sets). Sent to Meta as is_adset_budget_sharing_enabled, required since API v24.0 in that case. False (default) = each ad set spends only its own budget. True = ad set budget sharing, which Meta recommends: up to 20% of the budget can be shared with other ad sets in the same campaign.
         start_time: ISO 8601 start time.
         stop_time: ISO 8601 stop time (required for lifetime budget).
     """
@@ -112,15 +117,37 @@ async def create_campaign(
     BidStrategy(bid_strategy)
 
     _ALLOWED_AD_CATEGORIES = {
-        "NONE", "EMPLOYMENT", "HOUSING", "CREDIT", "ISSUES_ELECTIONS_POLITICS",
+        "NONE", "EMPLOYMENT", "HOUSING", "FINANCIAL_PRODUCTS_SERVICES",
+        "ISSUES_ELECTIONS_POLITICS", "ONLINE_GAMBLING_AND_GAMING",
     }
+    # CREDIT was replaced by FINANCIAL_PRODUCTS_SERVICES in January 2025.
+    _LEGACY_AD_CATEGORIES = {"CREDIT": "FINANCIAL_PRODUCTS_SERVICES"}
     categories = []
     for cat in special_ad_categories.split(","):
         cat = cat.strip().upper()
+        cat = _LEGACY_AD_CATEGORIES.get(cat, cat)
         if cat and cat != "NONE":
             if cat not in _ALLOWED_AD_CATEGORIES:
                 return f"Error: invalid special_ad_category `{cat}`. Allowed: {', '.join(sorted(_ALLOWED_AD_CATEGORIES - {'NONE'}))}"
-            categories.append(cat)
+            if cat not in categories:
+                categories.append(cat)
+
+    countries = []
+    for code in (special_ad_category_country or "").split(","):
+        code = code.strip().upper()
+        if not code:
+            continue
+        if not re.fullmatch(r"[A-Z]{2}", code):
+            return f"Errore: codice paese non valido `{code}` in special_ad_category_country. Usa codici ISO a 2 lettere maiuscole separati da virgola (es. 'IT' o 'IT,DE')."
+        if code not in countries:
+            countries.append(code)
+
+    if "ISSUES_ELECTIONS_POLITICS" in categories and not countries:
+        return (
+            "Errore: per la categoria ISSUES_ELECTIONS_POLITICS Meta richiede il paese in cui "
+            "gli annunci andranno in onda. Indica special_ad_category_country con codici ISO "
+            "a 2 lettere (es. 'IT')."
+        )
 
     payload: dict = {
         "name": name,
@@ -129,10 +156,15 @@ async def create_campaign(
         "bid_strategy": bid_strategy,
         "special_ad_categories": json.dumps(categories),
     }
+    if countries:
+        payload["special_ad_category_country"] = json.dumps(countries)
     if daily_budget is not None:
         payload["daily_budget"] = str(daily_budget)
     if lifetime_budget is not None:
         payload["lifetime_budget"] = str(lifetime_budget)
+    if daily_budget is None and lifetime_budget is None:
+        # Budget lives on the ad sets: since API v24.0 Meta requires this flag.
+        payload["is_adset_budget_sharing_enabled"] = "true" if adset_budget_sharing else "false"
     if start_time:
         payload["start_time"] = start_time
     if stop_time:

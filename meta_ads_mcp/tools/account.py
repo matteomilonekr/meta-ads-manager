@@ -9,6 +9,7 @@ from fastmcp import Context
 
 logger = logging.getLogger(__name__)
 
+from meta_ads_mcp.models.common import META_API_VERSION
 from meta_ads_mcp.server import mcp
 from meta_ads_mcp.tools._helpers import get_client, safe_get
 from meta_ads_mcp.utils.formatting import format_table_markdown
@@ -69,7 +70,7 @@ async def health_check(ctx: Context = None) -> str:
             f"- **API**: Connected\n"
             f"- **User**: {name} ({user_id})\n"
             f"- **Accounts**: {account_count} accessible\n"
-            f"- **API Version**: v23.0"
+            f"- **API Version**: {META_API_VERSION}"
         )
     except Exception as exc:
         logger.error("Health check failed: %s", exc)

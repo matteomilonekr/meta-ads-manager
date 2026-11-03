@@ -235,7 +235,7 @@ meta_ads_mcp/
 - **FastMCP** — Framework server MCP
 - **httpx** — Client HTTP async
 - **Pydantic v2** — Validazione input
-- **Meta Graph API v23.0**
+- **Meta Graph API v26.0**
 
 ## Sviluppo
 
