@@ -4,6 +4,24 @@ Tutte le modifiche rilevanti al progetto Meta Ads MCP Server sono documentate in
 
 ---
 
+## [1.3.0] — 2026-11-03
+
+### Aggiornamento API Meta v26.0
+
+- Versione dell'API portata da v23.0 a v26.0 (per il Marketing API la v23.0 è scaduta il 9 giugno 2026 e anche la v24.0 è a fine vita). L'URL del grafo, quello dei video e il numero mostrato da `health_check` derivano ora da un'unica costante.
+- `create_campaign`: la categoria speciale `CREDIT` è stata sostituita da Meta con `FINANCIAL_PRODUCTS_SERVICES` (gennaio 2025). Il nuovo valore è accettato; `CREDIT` resta valido e viene convertito in automatico. Aggiunta anche `ONLINE_GAMBLING_AND_GAMING`.
+- `create_campaign`: nuovo parametro `special_ad_category_country` (codici ISO a 2 lettere separati da virgola, es. `IT`). Per `ISSUES_ELECTIONS_POLITICS` è obbligatorio e senza paese la funzione risponde con un errore prima di chiamare Meta; per casa, lavoro e prodotti finanziari, se omesso, Meta usa il paese fiscale dell'inserzionista.
+- `create_campaign`: quando il budget non è sulla campagna ma sui gruppi di inserzioni, viene inviato `is_adset_budget_sharing_enabled` (obbligatorio dalla v24.0). Nuovo parametro `adset_budget_sharing` (predefinito `False`: ogni gruppo spende solo il proprio budget; `True` è la scelta consigliata da Meta e consente di condividere fino al 20% del budget tra i gruppi della campagna). Il campo non viene inviato se la campagna ha un budget.
+- `create_ad_set`: non richiede più il campo `budget_rebalance_flag` (deprecato da Meta dalla v7.0). Il rilevamento del budget a livello campagna usa solo `daily_budget` e `lifetime_budget`, quindi il comportamento non cambia.
+- `create_creative`: `page_id`, `video_id` e `instagram_user_id` tornano a essere stringhe nello schema del tool. Un numero intero è accettato solo se esatto (fino a 2^53-1); decimali, booleani e numeri più grandi, che dai client JavaScript arrivano già arrotondati, vengono rifiutati con un errore chiaro invece di mandare a Meta un ID sbagliato.
+- `upload_image`: con `file_path` il file deve essere un vero JPEG o PNG (controllo del contenuto, non solo dell'estensione), non vuoto, non un collegamento simbolico e al massimo di 10 MB; con `META_UPLOAD_DIR` impostata deve stare in quella cartella. Passa dalla protezione anti-ban come gli altri caricamenti, restituisce errori leggibili se Meta rifiuta l'immagine e non accetta `image_url` e `file_path` insieme.
+- Client: lettura delle intestazioni di utilizzo di Meta (`X-Business-Use-Case-Usage`, `X-Ad-Account-Usage`, `X-App-Usage`). Quando Meta segnala un blocco, le chiamate per quell'account si fermano e l'errore indica quanti minuti attendere invece di ritentare alla cieca. Tutti i codici di limite documentati (4, 17, 32, 613, 80000-80014) sono riconosciuti.
+- `estimate_audience_size`: usa `estimate_mau_lower_bound` e `estimate_mau_upper_bound`, perché `daily_outcomes_curve` è stato rimosso dalla v26.0 (su tutte le versioni dal 27 ottobre 2026) e il tool restituiva sempre N/A.
+- `create_lookalike`: il paese non viene più inviato, perché dal 1 settembre 2026 Meta lo ignora e crea un lookalike senza paese (la consegna segue i paesi del gruppo di inserzioni). Il parametro `country` resta facoltativo per non rompere le chiamate esistenti.
+- Test: nuovi file `tests/test_campaigns_v26.py`, `tests/test_creatives_upload.py`, `tests/test_rate_limits.py`, `tests/test_audiences_v26.py`.
+
+---
+
 ## [1.2.0] — 2026-10-13
 
 ### Nuove funzioni

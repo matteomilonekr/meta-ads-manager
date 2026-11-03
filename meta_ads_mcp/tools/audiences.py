@@ -140,19 +140,22 @@ async def create_lookalike(
     account_id: str,
     name: str,
     origin_audience_id: str,
-    country: str,
+    country: str = "",
     ratio: float = 0.01,
     description: str = "",
     ctx: Context = None,
 ) -> str:
     """Create a lookalike audience from a source audience.
 
+    Since September 2026 Meta ignores the country in lookalike_spec and creates a
+    countryless lookalike: delivery follows the locations of the ad set that uses it.
+
     Args:
         account_id: Ad account ID.
         name: Lookalike audience name.
         origin_audience_id: Source custom audience ID.
-        country: Target country code (e.g. 'US', 'IT').
-        ratio: Lookalike ratio 0.01-0.20 (1%-20% of country population).
+        country: Deprecated, ignored by Meta. Kept so existing calls keep working.
+        ratio: Lookalike ratio 0.01-0.20 (1%-20% similarity).
         description: Optional description.
     """
     client = get_client(ctx)
@@ -172,7 +175,6 @@ async def create_lookalike(
         "origin_audience_id": origin_audience_id,
         "lookalike_spec": json.dumps({
             "type": "similarity",
-            "country": country.upper(),
             "ratio": ratio,
         }),
     }
@@ -185,8 +187,8 @@ async def create_lookalike(
         f"- **ID**: {audience_id}\n"
         f"- **Name**: {name}\n"
         f"- **Source**: {origin_audience_id}\n"
-        f"- **Country**: {country.upper()}\n"
-        f"- **Ratio**: {ratio:.0%}"
+        f"- **Ratio**: {ratio:.0%}\n"
+        f"- **Country**: none (Meta ignores it since September 2026: set the countries on the ad set)"
     )
 
 
@@ -219,22 +221,19 @@ async def estimate_audience_size(
     data = result.get("data", [{}])
     estimate = data[0] if data else {}
 
-    daily_reach = safe_get(estimate, "daily_outcomes_curve", [])
-    if daily_reach:
-        first = daily_reach[0]
-        reach = format_number(safe_get(first, "reach", 0))
-        impressions = format_number(safe_get(first, "impressions", 0))
-        spend = safe_get(first, "spend", 0)
+    # daily_outcomes_curve was removed in v26 (all versions from 2026-10-27): use the MAU bounds
+    lower = safe_get(estimate, "estimate_mau_lower_bound", None)
+    upper = safe_get(estimate, "estimate_mau_upper_bound", None)
+    if lower is not None and upper is not None:
+        audience = f"{format_number(lower)} - {format_number(upper)}"
     else:
-        reach = "N/A"
-        impressions = "N/A"
-        spend = 0
+        audience = "N/A"
+    ready = "Yes" if safe_get(estimate, "estimate_ready", True) else "No (retry in a few minutes)"
 
     return (
         f"## Audience Size Estimate\n\n"
-        f"- **Estimated Daily Reach**: {reach}\n"
-        f"- **Estimated Daily Impressions**: {impressions}\n"
-        f"- **Estimated Daily Spend**: ${float(spend):,.2f}\n"
+        f"- **Estimated Monthly Active Audience**: {audience}\n"
+        f"- **Estimate Ready**: {ready}\n"
         f"- **Optimization Goal**: {optimization_goal}"
     )
 

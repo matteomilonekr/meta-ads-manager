@@ -131,12 +131,14 @@ async def create_ad_set(
     try:
         campaign_data = await client.get(
             campaign_id,
-            params={"fields": "budget_rebalance_flag,daily_budget,lifetime_budget,objective"},
+            params={"fields": "daily_budget,lifetime_budget,objective"},
         )
         has_campaign_budget = bool(
             campaign_data.get("daily_budget") or campaign_data.get("lifetime_budget")
         )
-        uses_cbo = campaign_data.get("budget_rebalance_flag", False) or has_campaign_budget
+        # budget_rebalance_flag is deprecated since Marketing API v7.0: a budget set
+        # at campaign level is the only reliable CBO signal.
+        uses_cbo = has_campaign_budget
         campaign_objective = campaign_data.get("objective")
     except Exception as exc:
         logger.warning("Campaign check failed for %s: %s", campaign_id, exc)

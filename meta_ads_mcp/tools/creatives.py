@@ -5,10 +5,13 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import os
 from pathlib import Path
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 from fastmcp import Context
+from pydantic import BeforeValidator
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +22,35 @@ logger = logging.getLogger(__name__)
 _ALLOWED_SCHEMES = {"http", "https"}
 _BLOCKED_HOSTNAMES = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]"}
 _LOCAL_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
-_MAX_LOCAL_IMAGE_BYTES = 30 * 1024 * 1024
+_MAX_LOCAL_IMAGE_BYTES = 10 * 1024 * 1024  # base64 + urlencoding swell the request body to ~1.5x
+_IMAGE_MAGIC_BYTES = (b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")  # JPEG, PNG
+_MAX_SAFE_INT = 2**53 - 1  # above this a JSON number can arrive already rounded (JS clients)
+
+
+def _coerce_id(value: Any) -> str:
+    """Accept a Meta ID as a digit string; tolerate JSON integers only when they are exact."""
+    if isinstance(value, bool):
+        raise ValueError("ID non valido: un booleano non è un ID. Passalo come stringa tra virgolette.")
+    if isinstance(value, float):
+        raise ValueError(
+            "ID non valido: un numero decimale può aver perso cifre. Passa l'ID come stringa tra virgolette."
+        )
+    if isinstance(value, int):
+        if not 0 < value <= _MAX_SAFE_INT:
+            raise ValueError(
+                "ID non valido: i numeri così grandi arrivano arrotondati. Passa l'ID come stringa tra virgolette."
+            )
+        return str(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isascii() and text.isdigit():
+            return text
+        raise ValueError("ID non valido: deve contenere solo cifre (es. \"17841401998000123\").")
+    raise ValueError("ID non valido: passalo come stringa di sole cifre.")
+
+
+# Schema stays "string" for MCP clients; safe integers are still accepted
+MetaId = Annotated[str, BeforeValidator(_coerce_id)]
 
 
 def _validate_image_url(url: str) -> None:
@@ -170,15 +201,15 @@ def build_creative_payload(
 async def create_creative(
     account_id: str,
     name: str,
-    page_id: str | int,
+    page_id: MetaId,
     message: str | None = None,
     link: str | None = None,
     image_hash: str | None = None,
-    video_id: str | int | None = None,
+    video_id: MetaId | None = None,
     headline: str | None = None,
     description: str | None = None,
     call_to_action_type: str = "LEARN_MORE",
-    instagram_user_id: str | int | None = None,
+    instagram_user_id: MetaId | None = None,
     thumbnail_url: str | None = None,
     opt_out_enhancements: bool = False,
     ctx: Context = None,
@@ -188,7 +219,7 @@ async def create_creative(
     Args:
         account_id: Ad account ID.
         name: Creative name.
-        page_id: Facebook Page ID for the ad.
+        page_id: Facebook Page ID for the ad (pass it as a string, IDs can exceed what JSON numbers hold).
         message: Primary text (post body).
         link: Destination URL for the ad (optional for video ads).
         image_hash: Hash of uploaded image (from upload_image tool); for video ads it is the thumbnail.
@@ -206,11 +237,6 @@ async def create_creative(
     blocked = safety_guard.check_write_allowed("create", act_id)
     if blocked:
         return f"**Operazione bloccata (protezione anti-ban):** {blocked}"
-
-    # MCP clients may send numeric IDs as JSON numbers: Meta wants them as strings
-    page_id = str(page_id)
-    video_id = str(video_id) if video_id is not None else None
-    instagram_user_id = str(instagram_user_id) if instagram_user_id is not None else None
 
     payload = build_creative_payload(
         name, page_id, message, link, image_hash, video_id, headline, description,
@@ -251,18 +277,31 @@ async def upload_image(
     client = get_client(ctx)
     act_id = normalize_account_id(account_id)
 
-    if file_path:
-        path = Path(file_path).expanduser()
-        if path.suffix.lower() not in _LOCAL_IMAGE_SUFFIXES or not path.is_file():
-            return "Error: file_path must be an existing .jpg, .jpeg or .png file."
-        if path.stat().st_size > _MAX_LOCAL_IMAGE_BYTES:
-            return "Error: image larger than 30 MB."
-        b64 = base64.b64encode(path.read_bytes()).decode()
-        result = await client.post(f"{act_id}/adimages", data={"bytes": b64}, account_id=act_id)
-        return _format_image_result(result)
-
-    if not image_url:
+    if file_path and image_url:
+        return "Error: pass either image_url or file_path, not both."
+    if not file_path and not image_url:
         return "Error: pass image_url or file_path."
+
+    blocked = safety_guard.check_write_allowed("create", act_id)
+    if blocked:
+        return f"**Operazione bloccata (protezione anti-ban):** {blocked}"
+
+    if file_path:
+        try:
+            path = _validate_image_path(file_path)
+        except ValueError as exc:
+            return f"Error: {exc}"
+        try:
+            b64 = base64.b64encode(path.read_bytes()).decode()
+            result = await client.post(f"{act_id}/adimages", data={"bytes": b64}, account_id=act_id)
+        except MetaAdsMCPError as exc:
+            logger.error("File image upload failed (%s)", type(exc).__name__)
+            return f"Error uploading image: {exc}"
+        except (httpx.HTTPError, OSError) as exc:
+            logger.error("File image upload failed (%s)", type(exc).__name__)
+            return "Error uploading image from file. Check the file is readable and try again."
+        safety_guard.record_write("create", act_id)
+        return _format_image_result(result)
 
     # Validate URL before any network request (SSRF protection)
     _validate_image_url(image_url)
@@ -283,7 +322,41 @@ async def upload_image(
             logger.error("Image upload failed (both url and bytes methods)")
             return "Error uploading image. Verify the URL is publicly accessible and points to a valid image."
 
+    safety_guard.record_write("create", act_id)
     return _format_image_result(result)
+
+
+def _validate_image_path(file_path: str) -> Path:
+    """Accept only a real, non-empty JPEG/PNG file within the size limit (and META_UPLOAD_DIR, if set)."""
+    raw = Path(file_path).expanduser()
+    if raw.is_symlink():
+        raise ValueError("file_path must not be a symbolic link.")
+    try:
+        path = raw.resolve(strict=True)
+    except (OSError, RuntimeError):
+        raise ValueError("image file not found.") from None
+    if not path.is_file():
+        raise ValueError("file_path must be an existing .jpg, .jpeg or .png file.")
+    upload_dir = os.environ.get("META_UPLOAD_DIR")
+    if upload_dir:
+        try:
+            allowed = Path(upload_dir).expanduser().resolve(strict=True)
+        except (OSError, RuntimeError):
+            raise ValueError("META_UPLOAD_DIR is set but does not exist.") from None
+        if not path.is_relative_to(allowed):
+            raise ValueError("file_path is outside the allowed upload folder (META_UPLOAD_DIR).")
+    if path.suffix.lower() not in _LOCAL_IMAGE_SUFFIXES:
+        raise ValueError("file_path must be an existing .jpg, .jpeg or .png file.")
+    size = path.stat().st_size
+    if size == 0:
+        raise ValueError("image file is empty.")
+    if size > _MAX_LOCAL_IMAGE_BYTES:
+        raise ValueError("image larger than 10 MB.")
+    with path.open("rb") as fh:
+        head = fh.read(8)
+    if not head.startswith(_IMAGE_MAGIC_BYTES):
+        raise ValueError("file is not a valid JPEG or PNG image.")
+    return path
 
 
 def _format_image_result(result: dict) -> str:
